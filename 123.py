@@ -318,7 +318,6 @@ st.markdown("""
         margin-top: 20px;
         margin-bottom: 40px;
     }
-
     </style>
     """, unsafe_allow_html=True)
 
@@ -525,11 +524,15 @@ if "user" not in st.session_state:
     st.session_state["user"] = None
 
 # הגדר את המקסימום של גודל הקובץ ל-1GB
-MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024  # 1GB בייטים
+MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1GB בייטים
 
 # פונקציה לבדוק את גודל הקובץ לפני שמעלים
 def handle_file_upload(uploaded_file):
-    if uploaded_file.size > MAX_FILE_SIZE:
+    # קריאת כל הקובץ ל-binary כדי לבדוק את הגודל
+    file_bytes = uploaded_file.read()
+    # החזרת מיקום קריאה חזרה ל־`uploaded_file` כדי שתוכל להשתמש בו בהמשך
+    uploaded_file.seek(0)
+    if len(file_bytes) > MAX_FILE_SIZE:
         st.error("הקובץ גדול מידי! המקסימום הוא 1GB.")
         return False
     return True
