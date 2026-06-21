@@ -524,11 +524,22 @@ def generate_word_html(title, markdown_text):
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
+# הגדר את המקסימום של גודל הקובץ ל-1GB
+MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024  # 1GB בייטים
+
+# פונקציה לבדוק את גודל הקובץ לפני שמעלים
+def handle_file_upload(uploaded_file):
+    if uploaded_file.size > MAX_FILE_SIZE:
+        st.error("הקובץ גדול מידי! המקסימום הוא 1GB.")
+        return False
+    return True
+
+# כאן נבצע בדיקת חיבור במקום בכל פעם מחדש
+# אם המשתמש לא מחובר, נציג את מסך ההתחברות והרשמה
 if st.session_state["user"] is None:
     st.write("")
     st.markdown("<h1>🎙️ SummarizeAI Pro</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitle'>מערכת בינה מלאכותית לניתוח, תמלול וסיכום פגישות אוטומטי</p>",
-                unsafe_allow_html=True)
+    st.markdown("<p class='subtitle'>מערכת בינה מלאכותית לניתוח, תמלול וסיכום פגישות אוטומטי</p>", unsafe_allow_html=True)
 
     col_lock, col_tabs, col_lock2 = st.columns([0.3, 3.4, 0.3])
     with col_tabs:
@@ -540,7 +551,7 @@ if st.session_state["user"] is None:
             login_password = st.text_input("סיסמה", type="password", key="login_password")
             st.write("")
             if st.button("התחבר לחשבון", key="btn_execute_login", use_container_width=True):
-                if not login_email or not login_password:  # תוקנה השגיאה כאן
+                if not login_email or not login_password:
                     st.error("אנא מלא את כל השדות המבוקשים.")
                 else:
                     with st.spinner("מתחבר לחשבון, אנא המתן..."):
@@ -559,7 +570,7 @@ if st.session_state["user"] is None:
             reg_password = st.text_input("סיסמה מאובטחת (לפחות 6 תווים)", type="password", key="reg_password")
             st.write("")
             if st.button("צור חשבון חדש והתחל", key="btn_execute_register", use_container_width=True):
-                if not reg_email:  # תיקון שגיאת הסינטקס
+                if not reg_email:
                     st.error("אנא מלא את כל השדות המבוקשים.")
                 elif len(reg_password) < 6:
                     st.error("הסיסמה חייבת להכיל 6 תווים לפחות.")
@@ -567,25 +578,18 @@ if st.session_state["user"] is None:
                     with st.spinner("מקים את החשבון החדש שלך..."):
                         try:
                             firebase_sign_up(reg_email, reg_password)
-                            st.info(
-                                "החשבון נוצר בהצלחה! שלחנו לך קישור אימות לתיבת המייל. אנא כנס להודעה, לחץ על הקישור ולאחר מכן חזור לכאן כדי להתחבר.")
+                            st.info("החשבון נוצר בהצלחה! שלחנו לך קישור אימות לתיבת המייל. אנא כנס להודעה, לחץ על הקישור ולאחר מכן חזור לכאן כדי להתחבר.")
                         except Exception as e:
                             st.error(f"{str(e)}")
     st.stop()
 
+# אם המשתמש מחובר, נשמור את ה-ID שלו למשתנה
 current_user_id = st.session_state["user"]["localId"]
 current_user_email = st.session_state["user"]["email"]
 
-# ==========================================
-# 5. הגדרות מנוע ה-AI
-# ==========================================
-GEMINI_API_KEY = st.secrets["api_keys"]["gemini"]
-client = genai.Client(api_key=GEMINI_API_KEY)
-MODEL_NAME = 'gemini-2.5-flash'
-
-# ==========================================
+# =========================
 # 6. היסטוריית שיחות ונתוני חשבון בסיידבר (בצד שמאל)
-# ==========================================
+# ==========================
 with st.sidebar:
     st.markdown(
         f'<p style="font-size:13px; color:#475467; text-align:center; font-weight:500; margin-top:10px; direction: rtl !important;">👤 {current_user_email}</p>',
@@ -626,9 +630,9 @@ with st.sidebar:
                 time.sleep(0.5)
                 st.rerun()
 
-# ==========================================
+# =========================
 # 7. המסך המרכזי
-# ==========================================
+# ==========================
 st.markdown('<h1>🎙️ SummarizeAI Pro</h1>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">הופכים קבצי קול ווידאו לסיכומים מדויקים ומשימות בשניות</p>', unsafe_allow_html=True)
 
@@ -733,6 +737,7 @@ with main_tabs[0]:
                             st.error("לא הצלחנו לקבל תשובה מהצ'אט, אנא נסה שוב.")
 
     else:
+        # בחירת סגנון סיכום
         summary_style = st.selectbox(
             "📋 בחר את סגנון הסיכום הרצוי:",
             [
@@ -748,7 +753,8 @@ with main_tabs[0]:
             type=["mp3", "wav", "m4a", "mp4", "mpeg", "mkv", "avi"]
         )
 
-        if uploaded_file is not None:
+        # בודק את גודל הקובץ לפני שממשיך
+        if uploaded_file is not None and handle_file_upload(uploaded_file):
             st.write("")
             start_analysis = st.button("🚀 התחל ניתוח שיחה אוטומטי")
             st.write("")
@@ -767,6 +773,7 @@ with main_tabs[0]:
                 progress_bar.progress(25)
 
                 _, ext = os.path.splitext(uploaded_file.name)
+                # ניקוי שם הקובץ לפני ההעלאה
                 clean_api_name = f"audio_input{ext}"
 
                 try:
@@ -778,6 +785,7 @@ with main_tabs[0]:
                     st.error("העלאת הקובץ נכשלה, אנא ודא שהקובץ תקין ונסה שוב.")
                     st.stop()
 
+                # מעקב אחר מצב הקובץ
                 current_pct = 25
                 while audio_file.state.name == "PROCESSING":
                     if current_pct < 60:
@@ -793,6 +801,7 @@ with main_tabs[0]:
                     st.error("עיבוד קובץ המדיה נכשל על ידי השרת.")
                     st.stop()
 
+                # המשך תהליך התמלול והסיכום כפי שהיה
                 text_placeholder.markdown('<p class="status-text-custom">📝 מתמלל ומקליד את המילים לעברית... (70%)</p>',
                                           unsafe_allow_html=True)
                 progress_bar.progress(70)
@@ -883,9 +892,11 @@ with main_tabs[0]:
                 except:
                     pass
 
+# =========================
+# 8. חלק המשוב והקישור
+# ==========================
 with main_tabs[1]:
     # החלף את חלק המשוב עם קישור
-    # מרכז את הכפתור בצורה בטוחה באמצעות קלאס חדש
     st.markdown('<div class="feedback-center-container">', unsafe_allow_html=True)
     st.markdown('<p class="center-bold-title">נשמח לשמוע את דעתך על המערכת</p>', unsafe_allow_html=True)
     # הכפתור במרכז באמצעות קלאס חדש
